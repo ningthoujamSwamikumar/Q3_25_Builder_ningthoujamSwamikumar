@@ -1,4 +1,4 @@
-import { AccountLayout, createMint, createSyncNativeInstruction, getOrCreateAssociatedTokenAccount, mintTo, NATIVE_MINT, syncNative, TOKEN_PROGRAM_ID, transfer } from "@solana/spl-token";
+import { AccountLayout, createMint, createMultisig, createSyncNativeInstruction, getOrCreateAssociatedTokenAccount, mintTo, NATIVE_MINT, syncNative, TOKEN_PROGRAM_ID, transfer } from "@solana/spl-token";
 import { clusterApiUrl, Connection, Keypair, LAMPORTS_PER_SOL, PublicKey, sendAndConfirmTransaction, SystemProgram, Transaction } from "@solana/web3.js";
 import dotenv from "dotenv";
 dotenv.config({ "path": "../.env" });
@@ -10,6 +10,32 @@ import { writeFileSync } from "fs";
 import { join } from "path";
 
 import token_mint from "./_token_mint.json";
+
+const multiSigMint = async () => {
+    const connection = new Connection(clusterApiUrl("devnet"));
+    //create key pairs or wallets
+    const wallet1 = Keypair.fromSecretKey(new Uint8Array(devWallet));
+    console.log("wallet1:", wallet1.publicKey.toBase58());
+    const wallet2 = Keypair.generate();
+    const wallet3 = Keypair.generate();
+    //airdrop
+    const airdropTx = await connection.requestAirdrop(wallet1.publicKey, 2 * LAMPORTS_PER_SOL);
+    const recentBlockhash = await connection.getLatestBlockhash();
+    await connection.confirmTransaction(
+        { blockhash: recentBlockhash.blockhash, lastValidBlockHeight: recentBlockhash.lastValidBlockHeight, signature: airdropTx },
+        "confirmed"
+    );
+    //create multisig
+    const multiSig = await createMultisig(connection, wallet1, [wallet1.publicKey, wallet2.publicKey, wallet3.publicKey], 5)
+    //create mint
+    const mint = await createMint(connection, wallet1, multiSig, multiSig, 5);
+    //ata
+    const ata = await getOrCreateAssociatedTokenAccount(connection, wallet1, mint, multiSig);
+    //mint to
+    //tx with multi signature
+}
+
+multiSigMint();
 
 const transferToken = async () => {
     const connection = new Connection(clusterApiUrl("devnet"));
@@ -43,7 +69,7 @@ const transferToken = async () => {
     console.log(`Wrap SOL token transfer succeeded. \n Check tx at https://explorer.solana.com/tx/${tokenTransferSig}?cluster=devnet`);
 }
 
-transferToken()
+//transferToken()
 
 //wrap sol in a token to be able to use it as token in token swaps, liquidity pool, etc.
 const wrapSol = async () => {
